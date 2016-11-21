@@ -40,6 +40,7 @@ mod_$(MODULE).so: mod_$(MODULE).o
 
 # install the shared object file into Apache 
 install: all
+	cp $(MODULE).conf /etc/httpd/conf.modules.d/99_$(MODULE).conf
 	# $(APXS) -i -a -n "$(MODULE)" mod_$(MODULE).so
 	$(APXS) -i -n "$(MODULE)" mod_$(MODULE).so
 	touch /var/www/html/$(MODULE)
