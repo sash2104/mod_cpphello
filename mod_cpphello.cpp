@@ -7,12 +7,17 @@
 #include "httpd.h"
 #include "http_config.h"
 #include "http_core.h"
+#include "http_log.h"
 #include "http_request.h"
 #include "http_protocol.h"
 #include <iostream>
 #include <string>
 
 extern "C" module AP_MODULE_DECLARE_DATA cpphello_module;
+
+/* Define prototypes of our functions in this module */
+static void register_hooks(apr_pool_t *pool);
+static int cpphello_handler(request_rec *r);
 
 typedef struct {
     char *hellomessage;
@@ -36,8 +41,14 @@ static int cpphello_handler(request_rec *r)
     /* Now that we are handling this request, we'll write out "Hello, world!" to the client.
      * To do so, we must first set the appropriate content type, followed by our output.
      */
-    ap_set_content_type(r, "application/json");
-    ap_rprintf(r, "{\"text\":\"hello\"}");
+
+    std::cerr << "MOD_CPPHELLO" << std::endl;
+
+    r->content_type = "text/html";      
+    if (!r->header_only)
+        ap_rputs("{\"text\":\"hello\"}\n", r);
+    // ap_set_content_type(r, "application/json; charset=utf-8");
+    // ap_rprintf(r, "{\"text\":\"hello\"}");
 
     /* Lastly, we must tell the server that we took care of this request and everything went fine.
      * We do so by simply returning the value OK to the server.
@@ -58,13 +69,13 @@ static int cpphello_handler(request_rec *r)
 
 static void register_hooks(apr_pool_t *p)
 {
-  ap_hook_fixups(cpphello_handler,NULL,NULL,APR_HOOK_MIDDLE);
+  ap_hook_handler(cpphello_handler,NULL,NULL,APR_HOOK_MIDDLE);
 }
 
 extern "C" {
     module AP_MODULE_DECLARE_DATA cpphello_module = {
 		STANDARD20_MODULE_STUFF,
-		cpphello_create_dir_config,
+        NULL,
 		NULL,
 		NULL,
 		NULL,
