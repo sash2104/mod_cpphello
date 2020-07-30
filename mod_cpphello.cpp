@@ -19,6 +19,41 @@ extern "C" module AP_MODULE_DECLARE_DATA cpphello_module;
 static void register_hooks(apr_pool_t *pool);
 static int cpphello_handler(request_rec *r);
 
+static int util_read(request_rec *r, const char **rbuf, apr_off_t *size)
+{
+    /*~~~~~~~~*/
+    int rc = OK;
+    /*~~~~~~~~*/
+
+    if((rc = ap_setup_client_block(r, REQUEST_CHUNKED_ERROR))) {
+        return(rc);
+    }
+
+    if(ap_should_client_block(r)) {
+
+        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+        char         argsbuffer[HUGE_STRING_LEN];
+        apr_off_t    rsize, len_read, rpos = 0;
+        apr_off_t length = r->remaining;
+        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+        *rbuf = (const char *) apr_pcalloc(r->pool, (apr_size_t) (length + 1));
+        *size = length;
+        while((len_read = ap_get_client_block(r, argsbuffer, sizeof(argsbuffer))) > 0) {
+            if((rpos + len_read) > length) {
+                rsize = length - rpos;
+            }
+            else {
+                rsize = len_read;
+            }
+
+            memcpy((char *) *rbuf + rpos, argsbuffer, (size_t) rsize);
+            rpos += rsize;
+        }
+    }
+    return(rc);
+}
+
 typedef struct {
     char *hellomessage;
 } cpphello_dir_config;
@@ -38,17 +73,17 @@ static int cpphello_handler(request_rec *r)
      */
     if (!r->handler || strcmp(r->handler, "cpphello")) return (DECLINED);
 
+    apr_off_t size;
+    const char* buffer;
+    if (util_read(r, &buffer, &size) == OK) {
+        ap_rprintf(r, "We read a request body that was %" APR_OFF_T_FMT " bytes long", size);
+    }
     /* Now that we are handling this request, we'll write out "Hello, world!" to the client.
      * To do so, we must first set the appropriate content type, followed by our output.
      */
 
-    std::cerr << "MOD_CPPHELLO" << std::endl;
-
-    r->content_type = "text/html";      
-    if (!r->header_only)
-        ap_rputs("{\"text\":\"hello\"}\n", r);
-    // ap_set_content_type(r, "application/json; charset=utf-8");
-    // ap_rprintf(r, "{\"text\":\"hello\"}");
+    ap_set_content_type(r, "application/json; charset=utf-8");
+    ap_rprintf(r, "{\"text\":\"hello\"}");
 
     /* Lastly, we must tell the server that we took care of this request and everything went fine.
      * We do so by simply returning the value OK to the server.
